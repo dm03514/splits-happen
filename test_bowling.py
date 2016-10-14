@@ -1,22 +1,36 @@
 import unittest
-from bowling import PlayerGame
+from bowling import PlayerLine, Frame
 
 
 class BowlingTestCase(unittest.TestCase):
 
     def test_bowling_all_strikes(self):
-        game = PlayerGame('XXXXXXXXXXXX')
-        self.assertEqual(game.score, 300)
+        line = PlayerLine('XXXXXXXXXXXX')
+        self.assertEqual(line.score, 300)
 
     def test_bowling_no_special(self):
-        game = PlayerGame('9-9-9-9-9-9-9-9-9-9-')
-        self.assertEqual(game.score, 90)
+        line = PlayerLine('9-9-9-9-9-9-9-9-9-9-')
+        self.assertEqual(line.score, 90)
 
     def test_bowling_all_spares(self):
-        game = PlayerGame('5/5/5/5/5/5/5/5/5/5/5')
-        self.assertEqual(game.score, 150)
+        line = PlayerLine('5/5/5/5/5/5/5/5/5/5/5')
+        self.assertEqual(line.score, 150)
 
     def test_bowling_mixed_frames(self):
-        game = PlayerGame('X7/9-X-88/-6XXX81')
-        self.assertEqual(game.score, 167)
+        line = PlayerLine('X7/9-X-88/-6XXX81')
+        self.assertEqual(line.score, 167)
+
+    def test_empty_line_score_0(self):
+        line = PlayerLine()
+        self.assertEqual(line.score, 0)
+
+
+class FrameTestCase(unittest.TestCase):
+    def test_frame_default_returns_empty_frame(self):
+        f = Frame()
+        self.assertEqual(f.next.line_score, 0)
+
+    def test_frame_next_recursive(self):
+        f = Frame()
+        self.assertEqual(f.next.next.next.line_score, 0)
 
