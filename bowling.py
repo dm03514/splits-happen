@@ -2,13 +2,48 @@
 
 class PlayerLine(object):
 
-    def __init__(self, game_results=None):
-        self.game_results = game_results
-        self.frames = []
+    def __init__(self, game_results=''):
+        self.frames = self.frames_from_results(list(game_results))
 
     @property
     def score(self):
         return sum(f.line_score for f in self.frames)
+
+    def frames_from_results(self, game_results):
+        """
+        Parses a game result list into frame objects.
+        """
+        NEXT_THROW = 0
+        frames = []
+        last_roll = None
+
+        while game_results:
+            current_roll = game_results.pop(NEXT_THROW)
+            if current_roll == Strike.TOKEN:
+                frames.append(Strike())
+
+            elif current_roll == Spare.TOKEN:
+                frames.append(Spare(first_roll=int(last_roll)))
+                last_roll = None
+
+            elif current_roll == RegularHit.MISS_TOKEN:
+                frames.append(RegularHit(
+                    first_roll=int(last_roll)
+                ))
+                last_roll = None
+
+            elif last_roll:
+                # two hits
+                frames.append(RegularHit(
+                    first_roll=int(last_roll),
+                    second_roll=int(current_roll)
+                ))
+                last_roll = None
+
+            else:
+                last_roll = current_roll
+
+        return frames
 
 
 class Frame(object):
@@ -46,6 +81,7 @@ class Frame(object):
 
 
 class Strike(Frame):
+    TOKEN = 'X'
     frame_points = 10
 
     @property
@@ -54,6 +90,7 @@ class Strike(Frame):
 
 
 class Spare(Frame):
+    TOKEN = '/'
 
     @property
     def line_score(self):
@@ -71,6 +108,7 @@ class Spare(Frame):
 
 
 class RegularHit(Frame):
+    MISS_TOKEN = '-'
 
     @property
     def line_score(self):
