@@ -131,10 +131,7 @@ class Frame(object):
     There are two members:
         - line_score - the score that this frame will add
             to the line's total score
-        - points - the number of points this will contribute
-            to a previous frame's score
     """
-    points = 0
     _next = None
 
     def __init__(self, first_roll=0, second_roll=None):
