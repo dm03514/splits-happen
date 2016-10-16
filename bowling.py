@@ -3,7 +3,6 @@ import sys
 
 
 logging.basicConfig(stream=sys.stdout,level=logging.DEBUG)
-logging.debug('here')
 
 
 class LineStringFramesParser(object):
@@ -67,9 +66,6 @@ class LineStringFramesParser(object):
         return frames
 
     def is_first_miss(self, current_roll, last_roll):
-        """
-        Checks if this is the first throw miss.
-        """
         return (
             current_roll == OpenFrame.MISS_TOKEN
             and last_roll is None
@@ -84,7 +80,7 @@ class LineStringFramesParser(object):
     def add_frame_reference(self, frames, current_frame):
         """
         Adds a reference from last frame to the current frame,
-        if last_frame is True.
+        if there is at least one bowled frame.
         """
         LAST_FRAME = -1
         if frames:
@@ -107,9 +103,6 @@ class PlayerLine(object):
         """
         return sum(f.line_score(is_last_frame=i >= self.LAST_GAME_FRAME)
                    for i, f in enumerate(self.frames))
-
-    def __str__(self):
-        return '+'.join(self.frames)
 
 
 class Frame(object):
@@ -137,7 +130,7 @@ class Frame(object):
     points = 0
     _next = None
 
-    def __init__(self, first_roll=0, second_roll=0):
+    def __init__(self, first_roll=0, second_roll=None):
         self.first_roll = first_roll
         self.second_roll = second_roll
 
@@ -149,29 +142,36 @@ class Frame(object):
     def next(self, frame):
         self._next = frame
 
-    @property
-    def frame_points(self):
-        return self.first_roll + self.second_roll
-
     def line_score(self, is_last_frame=False):
         return 0
-
-    def __str__(self):
-        return ''
 
 
 class Strike(Frame):
     TOKEN = 'X'
 
-    def __init__(self, first_roll=10, second_roll=0):
+    def __init__(self, first_roll=10, second_roll=None):
         self.first_roll = first_roll
         self.second_roll = second_roll
 
     def line_score(self, is_last_frame=False):
+        """
+        Calculates ten plus the simple total of the pins knocked down
+        in his next two rolls.
+        """
         if is_last_frame:
             return 0
 
-        return 10 + self.next.frame_points + self.next.next.frame_points
+        # next two rolls could span 2 frames
+        next_first_roll = self.next.first_roll
+        if self.next.second_roll is not None:
+            next_second_roll = self.next.second_roll
+        else:
+            next_second_roll = self.next.next.first_roll
+
+        logging.debug('(10 + {} + {})'.format(
+            next_first_roll, next_second_roll
+        ))
+        return 10 + next_first_roll + next_second_roll
 
 
 class Spare(Frame):
@@ -185,17 +185,12 @@ class Spare(Frame):
         if is_last_frame:
             return 0
 
-        return 10 + self.next.frame_points
-
-    @property
-    def frame_points(self):
-        """
-        Spares points will always count for the first roll,
-        since the second roll will qualify the frame as a spare.
-
-        :return:
-        """
-        return self.first_roll
+        logging.debug('({} + {} + {})'.format(
+            self.first_roll,
+            self.second_roll,
+            self.next.first_roll
+        ))
+        return 10 + self.next.first_roll
 
 
 class OpenFrame(Frame):
@@ -205,5 +200,6 @@ class OpenFrame(Frame):
         if is_last_frame:
             return 0
 
-        return self.first_roll + self.second_roll
+        logging.debug('({} + {})'.format(self.first_roll, self.second_roll))
+        return self.first_roll + (self.second_roll or 0)
 
