@@ -1,13 +1,18 @@
+import logging
+import sys
 
 
-class PlayerLine(object):
+logging.basicConfig(stream=sys.stdout,level=logging.DEBUG)
+logging.debug('here')
 
+
+class LineStringFramesParser(object):
     def __init__(self, game_results=''):
-        self.frames = self.frames_from_results(list(game_results))
+        self.game_results = game_results
 
     @property
-    def score(self):
-        return sum(f.line_score for f in self.frames)
+    def frames(self):
+        return self.frames_from_results(list(self.game_results))
 
     def frames_from_results(self, game_results):
         """
@@ -20,30 +25,91 @@ class PlayerLine(object):
         while game_results:
             current_roll = game_results.pop(NEXT_THROW)
             if current_roll == Strike.TOKEN:
-                frames.append(Strike())
+                current_frame = Strike()
+                self.add_frame_reference(frames, current_frame)
+                frames.append(current_frame)
 
             elif current_roll == Spare.TOKEN:
-                frames.append(Spare(first_roll=int(last_roll)))
+                current_frame = Spare(first_roll=int(last_roll))
                 last_roll = None
+                self.add_frame_reference(frames, current_frame)
+                frames.append(current_frame)
 
-            elif current_roll == RegularHit.MISS_TOKEN:
-                frames.append(RegularHit(
-                    first_roll=int(last_roll)
-                ))
+            elif self.is_first_miss(current_roll, last_roll):
+                last_roll = 0
+
+            elif self.is_second_miss(current_roll, last_roll):
+                current_frame = OpenFrame(first_roll=int(last_roll))
                 last_roll = None
+                self.add_frame_reference(frames, current_frame)
+                frames.append(current_frame)
 
-            elif last_roll:
+            elif last_roll is not None:
                 # two hits
-                frames.append(RegularHit(
+                current_frame = OpenFrame(
                     first_roll=int(last_roll),
                     second_roll=int(current_roll)
-                ))
+                )
+                self.add_frame_reference(frames, current_frame)
+                frames.append(current_frame)
                 last_roll = None
+
+            elif not game_results:
+                # if there are no more results, have to create from the
+                # last action
+                current_frame = OpenFrame(first_roll=int(current_roll))
+                self.add_frame_reference(frames, current_frame)
+                frames.append(current_frame)
 
             else:
                 last_roll = current_roll
 
         return frames
+
+    def is_first_miss(self, current_roll, last_roll):
+        """
+        Checks if this is the first throw miss.
+        """
+        return (
+            current_roll == OpenFrame.MISS_TOKEN
+            and last_roll is None
+        )
+
+    def is_second_miss(self, current_roll, last_roll):
+        return (
+            current_roll == OpenFrame.MISS_TOKEN
+            and last_roll is not None
+        )
+
+    def add_frame_reference(self, frames, current_frame):
+        """
+        Adds a reference from last frame to the current frame,
+        if last_frame is True.
+        """
+        LAST_FRAME = -1
+        if frames:
+            frames[LAST_FRAME].next = current_frame
+
+
+class PlayerLine(object):
+    LAST_GAME_FRAME = 10
+
+    def __init__(self, game_results=''):
+        self.frames = LineStringFramesParser(game_results).frames
+
+    @property
+    def score(self):
+        """
+        Calculates the players current score from the line.
+
+        Scores after the last frame are only used to calculate the last
+        frame's score
+        """
+        return sum(f.line_score(is_last_frame=i >= self.LAST_GAME_FRAME)
+                   for i, f in enumerate(self.frames))
+
+    def __str__(self):
+        return '+'.join(self.frames)
 
 
 class Frame(object):
@@ -68,32 +134,57 @@ class Frame(object):
         - points - the number of points this will contribute
             to a previous frame's score
     """
-    line_score = 0
     points = 0
+    _next = None
 
-    def __init__(self, first_roll=None, second_roll=None):
+    def __init__(self, first_roll=0, second_roll=0):
         self.first_roll = first_roll
         self.second_roll = second_roll
 
     @property
     def next(self):
-        return Frame()
+        return self._next if self._next else Frame()
+
+    @next.setter
+    def next(self, frame):
+        self._next = frame
+
+    @property
+    def frame_points(self):
+        return self.first_roll + self.second_roll
+
+    def line_score(self, is_last_frame=False):
+        return 0
+
+    def __str__(self):
+        return ''
 
 
 class Strike(Frame):
     TOKEN = 'X'
-    frame_points = 10
 
-    @property
-    def line_score(self):
+    def __init__(self, first_roll=10, second_roll=0):
+        self.first_roll = first_roll
+        self.second_roll = second_roll
+
+    def line_score(self, is_last_frame=False):
+        if is_last_frame:
+            return 0
+
         return 10 + self.next.frame_points + self.next.next.frame_points
 
 
 class Spare(Frame):
     TOKEN = '/'
 
-    @property
-    def line_score(self):
+    def __init__(self, first_roll=0, second_roll=0):
+        self.first_roll = first_roll
+        self.second_roll = 10 - self.first_roll
+
+    def line_score(self, is_last_frame=False):
+        if is_last_frame:
+            return 0
+
         return 10 + self.next.frame_points
 
     @property
@@ -107,10 +198,12 @@ class Spare(Frame):
         return self.first_roll
 
 
-class RegularHit(Frame):
+class OpenFrame(Frame):
     MISS_TOKEN = '-'
 
-    @property
-    def line_score(self):
+    def line_score(self, is_last_frame=False):
+        if is_last_frame:
+            return 0
+
         return self.first_roll + self.second_roll
 
