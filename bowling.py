@@ -5,6 +5,27 @@ import sys
 logging.basicConfig(stream=sys.stdout,level=logging.DEBUG)
 
 
+class Frames(list):
+
+    def append(self, frame):
+        """
+        Adds a reference from `frame` to the last bowled frame, if any.
+        then adds the `frame` to the list.  Can't add the frame to the list
+        first or it will reference itself.
+        """
+        self.add_frame_reference(frame)
+        super(Frames, self).append(frame)
+
+    def add_frame_reference(self, current_frame):
+        """
+        Adds a reference from last frame to the current frame,
+        if there is at least one bowled frame.
+        """
+        LAST_FRAME = -1
+        if self:
+            self[LAST_FRAME].next = current_frame
+
+
 class LineStringFramesParser(object):
     def __init__(self, game_results=''):
         self.game_results = game_results
@@ -18,20 +39,18 @@ class LineStringFramesParser(object):
         Parses a game result list into frame objects.
         """
         NEXT_THROW = 0
-        frames = []
+        frames = Frames()
         last_roll = None
 
         while game_results:
             current_roll = game_results.pop(NEXT_THROW)
             if current_roll == Strike.TOKEN:
                 current_frame = Strike()
-                self.add_frame_reference(frames, current_frame)
                 frames.append(current_frame)
 
             elif current_roll == Spare.TOKEN:
                 current_frame = Spare(first_roll=int(last_roll))
                 last_roll = None
-                self.add_frame_reference(frames, current_frame)
                 frames.append(current_frame)
 
             elif self.is_first_miss(current_roll, last_roll):
@@ -40,7 +59,6 @@ class LineStringFramesParser(object):
             elif self.is_second_miss(current_roll, last_roll):
                 current_frame = OpenFrame(first_roll=int(last_roll))
                 last_roll = None
-                self.add_frame_reference(frames, current_frame)
                 frames.append(current_frame)
 
             elif last_roll is not None:
@@ -49,7 +67,6 @@ class LineStringFramesParser(object):
                     first_roll=int(last_roll),
                     second_roll=int(current_roll)
                 )
-                self.add_frame_reference(frames, current_frame)
                 frames.append(current_frame)
                 last_roll = None
 
@@ -57,7 +74,6 @@ class LineStringFramesParser(object):
                 # if there are no more results, have to create from the
                 # last action
                 current_frame = OpenFrame(first_roll=int(current_roll))
-                self.add_frame_reference(frames, current_frame)
                 frames.append(current_frame)
 
             else:
@@ -76,15 +92,6 @@ class LineStringFramesParser(object):
             current_roll == OpenFrame.MISS_TOKEN
             and last_roll is not None
         )
-
-    def add_frame_reference(self, frames, current_frame):
-        """
-        Adds a reference from last frame to the current frame,
-        if there is at least one bowled frame.
-        """
-        LAST_FRAME = -1
-        if frames:
-            frames[LAST_FRAME].next = current_frame
 
 
 class PlayerLine(object):
