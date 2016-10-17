@@ -56,16 +56,11 @@ class LineStringFramesParser(object):
             elif self.is_first_miss(current_roll, last_roll):
                 last_roll = 0
 
-            elif self.is_second_miss(current_roll, last_roll):
-                current_frame = OpenFrame(first_roll=int(last_roll))
-                last_roll = None
-                frames.append(current_frame)
-
             elif last_roll is not None:
                 # two hits
                 current_frame = OpenFrame(
-                    first_roll=int(last_roll),
-                    second_roll=int(current_roll)
+                    first_roll=last_roll,
+                    second_roll=current_roll
                 )
                 frames.append(current_frame)
                 last_roll = None
@@ -73,7 +68,7 @@ class LineStringFramesParser(object):
             elif not game_results:
                 # if there are no more results, have to create from the
                 # last action
-                current_frame = OpenFrame(first_roll=int(current_roll))
+                current_frame = OpenFrame(first_roll=current_roll)
                 frames.append(current_frame)
 
             else:
@@ -199,6 +194,16 @@ class Spare(Frame):
 
 class OpenFrame(Frame):
     MISS_TOKEN = '-'
+
+    def __init__(self, first_roll=0, second_roll=0):
+        # allow the callers to pass in integers or '-'
+        if first_roll == self.MISS_TOKEN:
+            first_roll = 0
+        if second_roll == self.MISS_TOKEN:
+            second_roll = 0
+
+        self.first_roll = int(first_roll)
+        self.second_roll = int(second_roll)
 
     def line_score(self, is_last_frame=False):
         if is_last_frame:

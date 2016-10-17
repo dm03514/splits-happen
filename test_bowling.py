@@ -49,7 +49,7 @@ class BowlingTestCase(unittest.TestCase):
         self.assertEqual(len(line.frames), 1)
         self.assertIsInstance(line.frames[0], OpenFrame)
         self.assertEqual(line.frames[0].first_roll, 7)
-        self.assertEqual(line.frames[0].second_roll, None)
+        self.assertEqual(line.frames[0].second_roll, 0)
 
 
 class FrameTestCase(unittest.TestCase):
