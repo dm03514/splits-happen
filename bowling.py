@@ -82,12 +82,6 @@ class LineStringFramesParser(object):
             and last_roll is None
         )
 
-    def is_second_miss(self, current_roll, last_roll):
-        return (
-            current_roll == OpenFrame.MISS_TOKEN
-            and last_roll is not None
-        )
-
 
 class PlayerLine(object):
     LAST_GAME_FRAME = 10
